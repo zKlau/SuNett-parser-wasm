@@ -1,10 +1,10 @@
 [package]
 name = "sunett-parser"
-version = "0.0.3"
+version = "0.0.5"
 authors = ["slundi"]
 edition = "2021"
 description = "Rust library and command line interface (CLI) for guitar tab files."
-repository = "https://gitlab.com/slundi/guitar-io"
+repository = "https://github.com/zKlau/SuNett-parser-wasm"
 license = "MIT"
 readme = "README.md"
 
