@@ -204,6 +204,7 @@ impl SongGpifOps for Song {
             }
 
             // Tuning: GP6 track-level properties, GP7 staves
+            track.strings.clear();
             if let Some(props) = &g_track.properties {
                 track.strings = extract_tuning(&props.properties);
             }
