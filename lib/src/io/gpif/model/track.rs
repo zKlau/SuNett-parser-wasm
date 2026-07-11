@@ -24,10 +24,37 @@ pub struct Track {
     pub staves: Option<StavesWrapper>,
     #[serde(rename = "GeneralMidi", default)]
     pub general_midi: Option<GeneralMidi>,
+    /// GP7: MIDI channel/port assignment (replaces GeneralMidi from GP6)
+    #[serde(rename = "MidiConnection", default)]
+    pub midi_connection: Option<MidiConnection>,
+    /// GP7: instrument set — its Type distinguishes drum kits from pitched instruments
+    #[serde(rename = "InstrumentSet", default)]
+    pub instrument_set: Option<InstrumentSet>,
     #[serde(rename = "Transpose", default)]
     pub transpose: Option<Transpose>,
     #[serde(rename = "RSE", default)]
     pub rse: Option<RseTrackWrapper>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MidiConnection {
+    #[serde(rename = "Port", default)]
+    pub port: Option<i32>,
+    #[serde(rename = "PrimaryChannel", default)]
+    pub primary_channel: Option<i32>,
+    #[serde(rename = "SecondaryChannel", default)]
+    pub secondary_channel: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InstrumentSet {
+    #[serde(rename = "Name", default)]
+    pub name: String,
+    /// e.g. "drumKit" for percussion, "electricGuitar" / "bass" for pitched instruments
+    #[serde(rename = "Type", default)]
+    pub instrument_type: String,
+    #[serde(rename = "LineCount", default)]
+    pub line_count: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
