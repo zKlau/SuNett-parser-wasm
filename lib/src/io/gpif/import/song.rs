@@ -204,6 +204,7 @@ impl SongGpifOps for Song {
             }
 
             // Tuning: GP6 track-level properties, GP7 staves
+            track.strings.clear();
             if let Some(props) = &g_track.properties {
                 track.strings = extract_tuning(&props.properties);
             }
@@ -225,7 +226,7 @@ impl SongGpifOps for Song {
 
             track.fret_count = 24;
 
-            // MIDI
+            // MIDI: GP6 uses <GeneralMidi>, GP7 uses <MidiConnection>
             if let Some(gm) = &g_track.general_midi {
                 if let Some(ch) = gm.primary_channel {
                     track.channel_index = ch as usize;
@@ -234,6 +235,21 @@ impl SongGpifOps for Song {
                 track.midi_program_gpif = gm.program;
                 if let Some(port) = gm.port {
                     track.port = port as u8;
+                }
+            }
+            if let Some(mc) = &g_track.midi_connection {
+                if let Some(ch) = mc.primary_channel {
+                    track.channel_index = ch as usize;
+                    track.percussion_track = ch == 9;
+                }
+                if let Some(port) = mc.port {
+                    track.port = port as u8;
+                }
+            }
+            // A drumKit instrument set is percussion regardless of MIDI channel.
+            if let Some(iset) = &g_track.instrument_set {
+                if iset.instrument_type == "drumKit" {
+                    track.percussion_track = true;
                 }
             }
 
