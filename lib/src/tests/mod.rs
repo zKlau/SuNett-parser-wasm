@@ -47,3 +47,5 @@ pub fn read_gp7(filename: &str) -> crate::model::song::Song {
     song.read_gp(&read_file(String::from(filename))).unwrap();
     song
 }
+
+mod playback_fidelity;

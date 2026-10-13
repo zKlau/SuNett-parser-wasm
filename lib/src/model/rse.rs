@@ -31,6 +31,9 @@ impl Default for RseEqualizer {
 /// Master effect as seen in "Score information"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RseMasterEffect {
+    /// Undecoded GP5.1 master word, retained without assigning DSP semantics.
+    #[serde(default)]
+    pub raw_master_value: i32,
     pub volume: f32,
     pub reverb: f32,
     pub equalizer: RseEqualizer,
@@ -38,6 +41,7 @@ pub struct RseMasterEffect {
 impl Default for RseMasterEffect {
     fn default() -> Self {
         RseMasterEffect {
+            raw_master_value: 0,
             volume: 0.0,
             reverb: 0.0,
             equalizer: RseEqualizer {
@@ -72,6 +76,9 @@ impl Default for RseInstrument {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackRse {
+    /// Undecoded track words; absent in older serialized JSON.
+    #[serde(default)]
+    pub raw_values: Option<[i32; 6]>,
     pub instrument: RseInstrument,
     pub equalizer: RseEqualizer,
     pub humanize: u8,
@@ -80,6 +87,7 @@ pub struct TrackRse {
 impl Default for TrackRse {
     fn default() -> Self {
         TrackRse {
+            raw_values: None,
             instrument: RseInstrument::default(),
             humanize: 0,
             auto_accentuation: Accentuation::None,
@@ -130,7 +138,7 @@ impl SongRseOps for Song {
         let mut me = RseMasterEffect::default();
         if self.version.number > (5, 0, 0) {
             me.volume = read_int(data, seek)?.to_f32().unwrap();
-            read_int(data, seek)?; //???
+            me.raw_master_value = read_int(data, seek)?;
             me.equalizer = self.read_rse_equalizer(data, seek, 11)?;
             //println!("read_rse_master_effect(): {:?}", me);
         }
@@ -149,7 +157,8 @@ impl SongRseOps for Song {
             e.knobs
                 .push(self.unpack_volume_value(read_signed_byte(data, seek)?));
         } //knobs = list(map(self.unpackVolumeValue, self.readSignedByte(count=knobsNumber)))
-        Ok(e) //return gp.RSEEqualizer(knobs=knobs[:-1], gain=knobs[-1])
+        e.gain = e.knobs.pop().unwrap_or(0.0);
+        Ok(e)
     }
     /// Unpack equalizer volume value. Equalizer volumes are float but stored as `SignedBytes <signed-byte>`.
     fn unpack_volume_value(&self, value: i8) -> f32 {
@@ -165,8 +174,11 @@ impl SongRseOps for Song {
     fn read_track_rse(&mut self, data: &[u8], seek: &mut usize, track: &mut Track) -> GpResult<()> {
         track.rse.humanize = read_byte(data, seek)?;
         //println!("read_track_rse(), humanize: {} \t\t seek: {}", track.rse.humanize, *seek);
-        *seek += 12; //read_int(data, seek); read_int(data, seek); read_int(data, seek);  //??? 4 bytes*3 //*seek += 12;
-        *seek += 12; //???
+        let mut raw_values = [0; 6];
+        for value in &mut raw_values {
+            *value = read_int(data, seek)?;
+        }
+        track.rse.raw_values = Some(raw_values);
         track.rse.instrument = self.read_rse_instrument(data, seek)?;
         if self.version.number > (5, 0, 0) {
             track.rse.equalizer = self.read_rse_equalizer(data, seek, 4)?;
@@ -221,7 +233,7 @@ impl SongRseOps for Song {
                 self.master_effect.volume.ceil().to_i32().unwrap()
             },
         );
-        write_i32(data, 0); //reverb?
+        write_i32(data, self.master_effect.raw_master_value);
         self.write_equalizer(data, &self.master_effect.equalizer);
     }
     fn write_equalizer(&self, data: &mut Vec<u8>, equalizer: &RseEqualizer) {
@@ -239,10 +251,9 @@ impl SongRseOps for Song {
 
     fn write_track_rse(&self, data: &mut Vec<u8>, rse: &TrackRse, version: &(u8, u8, u8)) {
         write_byte(data, rse.humanize);
-        write_i32(data, 0);
-        write_i32(data, 0);
-        write_i32(data, 100);
-        write_placeholder_default(data, 12);
+        for value in rse.raw_values.unwrap_or([0, 0, 100, 0, 0, 0]) {
+            write_i32(data, value);
+        }
         self.write_rse_instrument(data, &rse.instrument, version);
         if version > &(5, 0, 0) {
             self.write_equalizer(data, &rse.equalizer);

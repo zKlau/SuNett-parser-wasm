@@ -1,4 +1,4 @@
-use fraction::ToPrimitive;
+
 
 use crate::{io::primitive::*, model::song::*, error::GpResult};
 
@@ -233,21 +233,29 @@ impl SongMidiOps for Song {
         Ok(c)
     }
 
-    /// Read MIDI channel. MIDI channel in Guitar Pro is represented by two integers. First is zero-based number of channel, second is zero-based number of channel used for effects.
+    /// Read MIDI channel. MIDI channel in Guitar Pro is represented by two integers. Both stored channel numbers are one-based; the returned index is zero-based.
     fn read_channel(&mut self, data: &[u8], seek: &mut usize) -> GpResult<usize> {
-        //TODO: fixme for writing
-        let index = read_int(data, seek)? - 1;
-        let effect_channel = read_int(data, seek)? - 1;
-        if 0 <= index && index < self.channels.len().to_i32().unwrap() {
-            if self.channels[index.to_usize().unwrap()].instrument < 0 {
-                self.channels[index.to_usize().unwrap()].instrument = 0;
-            }
-            if !self.channels[index.to_usize().unwrap()].is_percussion_channel() {
-                self.channels[index.to_usize().unwrap()].effect_channel =
-                    effect_channel.to_u8().unwrap();
-            }
+        let raw_index = read_int(data, seek)?;
+        let raw_effect = read_int(data, seek)?;
+        if raw_index < 1 || raw_index as usize > self.channels.len() {
+            return Err(crate::error::GpError::InvalidValue {
+                context: "track MIDI channel", value: raw_index as i64,
+            });
         }
-        Ok(index.to_usize().unwrap())
+        let index = raw_index as usize - 1;
+        let channel = &mut self.channels[index];
+        if !channel.is_percussion_channel() {
+            if raw_effect < 1 || raw_effect as usize > self.channels.len() {
+                return Err(crate::error::GpError::InvalidValue {
+                    context: "track MIDI effect channel", value: raw_effect as i64,
+                });
+            }
+            self.channels[index].effect_channel = (raw_effect - 1) as u8;
+        }
+        if self.channels[index].instrument < 0 {
+            self.channels[index].instrument = 0;
+        }
+        Ok(index)
     }
 
     fn write_midi_channels(&self, data: &mut Vec<u8>) {

@@ -47,6 +47,9 @@ impl Default for TrackSettings {
 pub struct Track {
     pub number: i32,
     pub offset: i32,
+    /// Normalized GPIF mixer volume, separate from shared MIDI channel routing.
+    #[serde(default)]
+    pub playback_volume: Option<f32>,
     pub channel_index: usize, //pub channel_id: i32,
     pub solo: bool,
     pub mute: bool,
@@ -78,6 +81,7 @@ impl Default for Track {
         Track {
             number: 1,
             offset: 0,
+            playback_volume: None,
             channel_index: 0, //channel_id: 25,
             solo: false,
             mute: false,
@@ -184,7 +188,8 @@ impl SongTrackOps for Song {
         //println!("tuning: {:?}", track.strings);
         track.port = read_int(data, seek)?.to_u8().unwrap();
         let index = self.read_channel(data, seek)?;
-        if self.channels[index].channel == 9 {
+        track.channel_index = index;
+        if self.channels[index].is_percussion_channel() {
             track.percussion_track = true;
         }
         track.fret_count = read_int(data, seek)?.to_u8().unwrap();
@@ -243,8 +248,9 @@ impl SongTrackOps for Song {
         let flags1 = read_byte(data, seek)?;
         //println!("read_track_v5(), flags1: {} \t seek: {}", flags1, *seek);
         track.percussion_track = (flags1 & 0x01) == 0x01;
-        track.banjo_track = (flags1 & 0x02) == 0x02;
-        track.visible = (flags1 & 0x04) == 0x04;
+        track.twelve_stringed_guitar_track = (flags1 & 0x02) == 0x02;
+        track.banjo_track = (flags1 & 0x04) == 0x04;
+        track.visible = (flags1 & 0x08) == 0x08;
         track.solo = (flags1 & 0x10) == 0x10;
         track.mute = (flags1 & 0x20) == 0x20;
         track.use_rse = (flags1 & 0x40) == 0x40;
@@ -262,8 +268,9 @@ impl SongTrackOps for Song {
             }
         }
         track.port = read_int(data, seek)?.to_u8().unwrap();
-        self.read_channel(data, seek)?;
-        if self.channels[number].channel == 9 {
+        let index = self.read_channel(data, seek)?;
+        track.channel_index = index;
+        if self.channels[index].is_percussion_channel() {
             track.percussion_track = true;
         }
         track.fret_count = read_int(data, seek)?.to_u8().unwrap();
@@ -286,7 +293,7 @@ impl SongTrackOps for Song {
         track.settings.extend_rythmic = (flags2 & 0x0800) == 0x0800;
 
         track.rse.auto_accentuation = get_accentuation(read_byte(data, seek)?)?;
-        self.channels[number].bank = read_byte(data, seek)?;
+        self.channels[index].bank = read_byte(data, seek)?;
         self.read_track_rse(data, seek, &mut track)?;
         self.tracks.push(track);
         Ok(())
@@ -319,7 +326,7 @@ impl SongTrackOps for Song {
         }
         write_byte(data, flags);
         write_byte_size_string(data, &self.tracks[number].name);
-        write_placeholder_default(data, 30 - self.tracks[number].name.len());
+        write_placeholder_default(data, 40 - self.tracks[number].name.len());
         write_i32(data, self.tracks[number].strings.len().to_i32().unwrap());
         for i in 0..7usize {
             let mut tuning = 0i8;
@@ -352,7 +359,7 @@ impl SongTrackOps for Song {
         write_color(data, self.tracks[number].color);
     }
     fn write_track_v5(&self, data: &mut Vec<u8>, number: usize, version: &(u8, u8, u8)) {
-        if number == 1 || version == &(5, 0, 0) {
+        if number == 0 || version == &(5, 0, 0) {
             write_placeholder_default(data, 1);
         }
         let mut flags1 = 0u8;
