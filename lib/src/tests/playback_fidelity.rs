@@ -88,3 +88,15 @@ fn unknown_rse_words_are_preserved_without_interpretation() {
     assert_eq!(written, bytes);
     assert!(song.read_track_rse(&bytes[..12], &mut 0, &mut Track::default()).is_err());
 }
+
+#[test]
+fn gpif_mixer_volume_survives_import_including_silence() {
+    use crate::io::gpif::{model::Gpif, import::song::SongGpifOps};
+    for (value, expected) in [("0", Some(0.0)), ("0.25", Some(0.25)), ("0.9375", Some(0.9375)), ("NaN", None)] {
+        let xml = format!("<GPIF><Score/><MasterTrack/><Tracks><Track id='0'><Name>Quiet guitar</Name><RSE><ChannelStrip><Parameters>0 0 0 0 0 0 0 0 0 0 0 0.5 {value}</Parameters></ChannelStrip></RSE></Track></Tracks><MasterBars/><Bars/><Voices/><Beats/><Notes/><Rhythms/></GPIF>");
+        let gpif: Gpif = quick_xml::de::from_str(&xml).unwrap();
+        let mut song = Song::default();
+        song.read_gpif(&gpif);
+        assert_eq!(song.tracks[0].playback_volume, expected);
+    }
+}

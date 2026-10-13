@@ -47,6 +47,9 @@ impl Default for TrackSettings {
 pub struct Track {
     pub number: i32,
     pub offset: i32,
+    /// Normalized GPIF mixer volume, separate from shared MIDI channel routing.
+    #[serde(default)]
+    pub playback_volume: Option<f32>,
     pub channel_index: usize, //pub channel_id: i32,
     pub solo: bool,
     pub mute: bool,
@@ -78,6 +81,7 @@ impl Default for Track {
         Track {
             number: 1,
             offset: 0,
+            playback_volume: None,
             channel_index: 0, //channel_id: 25,
             solo: false,
             mute: false,

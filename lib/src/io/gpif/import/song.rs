@@ -224,6 +224,13 @@ impl SongGpifOps for Song {
                 track.strings = vec![(1, 64), (2, 59), (3, 55), (4, 50), (5, 45), (6, 40)];
             }
 
+            track.playback_volume = g_track.rse.as_ref()
+                .and_then(|rse| rse.channel_strip.as_ref())
+                .and_then(|strip| strip.parameters.as_deref())
+                .and_then(|parameters| parameters.split_whitespace().nth(12))
+                .and_then(|value| value.parse::<f32>().ok())
+                .filter(|value| value.is_finite())
+                .map(|value| value.clamp(0.0, 1.0));
             track.fret_count = 24;
 
             // MIDI: GP6 uses <GeneralMidi>, GP7 uses <MidiConnection>
