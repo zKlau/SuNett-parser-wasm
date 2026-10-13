@@ -24,7 +24,7 @@ This workspace is divided into several crates:
 To get started with the CLI, run:
 
 ```bash
-cargo run -p cli -- --input path/to/song.gp5 --tab
+cargo run -p cli -- --input "C:\Users\denis\Desktop\Vscode\SunNett\SuNett-engine\playground\public\tabs\hpb.gp5" --tab
 ```
 
 ## Roadmap
